@@ -2,8 +2,8 @@ EXP_NAME: MemSeg
 SEED: 42
 
 DATASET:
-  datadir: /datasets/MVTec
-  texture_source_dir: /datasets/dtd/images
+  datadir: D:\datasets\mvtec
+  texture_source_dir: D:\datasets\dtd-r1.0.1\dtd\images
   anomaly_mask_info: ./anomaly_mask.json
   target: null
   resize: 
