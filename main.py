@@ -26,10 +26,17 @@ def run(cfg):
     torch_seed(cfg.SEED)
 
     device = 'cuda:0' if torch.cuda.is_available() else 'cpu'
+    # getting the device
     _logger.info('Device: {}'.format(device))
+    # logging the device
 
     # savedir
     cfg.EXP_NAME = cfg.EXP_NAME + f"-{cfg.DATASET.target}"
+    # the experiment name usualy it is Memseg
+    # target is the called
+    # you call the experiment Memseg-Target_category
+    # you save everything under savdir
+    # there is path called saved_model
     savedir = os.path.join(cfg.RESULT.savedir, cfg.EXP_NAME)
     os.makedirs(savedir, exist_ok=True)
 
@@ -55,7 +62,7 @@ def run(cfg):
         bg_threshold           = cfg.DATASET.bg_threshold,
         bg_reverse             = cfg.DATASET.bg_reverse
     )
-
+    # this is a memory dataset that will be kept safe in the memory of the algorithim
     memoryset = create_dataset(
         datadir   = cfg.DATASET.datadir,
         target    = cfg.DATASET.target, 
@@ -161,15 +168,28 @@ def run(cfg):
 
 
 if __name__=='__main__':
+    # you get it from the running place
+    # This line loads command-line arguments using OmegaConf.from_cli(),
+    # which parses the command-line inputs into a dictionary-like object (args).
+    # The keys and values correspond to the command-line options passed when running the script.
+    # The command used to run is
+    # python main.py configs=configs.yaml DATASET.target=bottle
+    # like this you are setting a specific thing
     args = OmegaConf.from_cli()
+
+
     # load default config
+    # i am loading the yaml file
     cfg = OmegaConf.load(args.configs)
     del args['configs']
     
     # merge config with new keys
+    # i am merging both so that  DATASET.target=bottle gets set to bottle
     cfg = OmegaConf.merge(cfg, args)
     
     # target cfg
+    # ./anomaly_mask.json
+    # what is this file? i am doing to load it and merge it with yaml to have everything complete
     target_cfg = OmegaConf.load(cfg.DATASET.anomaly_mask_info)
     cfg.DATASET = OmegaConf.merge(cfg.DATASET, target_cfg[cfg.DATASET.target])
     

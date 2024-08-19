@@ -32,6 +32,7 @@ from typing import List
 IMAGENET_MEAN = [0.485, 0.456, 0.406]
 IMAGENET_STD = [0.229, 0.224, 0.225]
 
+
 class MemSegDataset(Dataset):
     def __init__(
         self, datadir: str, target: str, is_train: bool, to_memory: bool = False, 
@@ -46,46 +47,56 @@ class MemSegDataset(Dataset):
         self.to_memory = to_memory
 
         # load image file list
-        self.datadir = datadir
-        self.target = target
+        self.datadir = datadir # D:\datasets\mvtec
+        self.target = target # target the class
+        # depending you are working on train or test you get all the file_list
         self.file_list = glob(os.path.join(self.datadir, self.target, 'train/*/*' if is_train else 'test/*/*'))
         
         # synthetic anomaly
+        # if yo are training and you are not to memory
+        # to memory is always set to False
         if self.is_train and not self.to_memory:
-            # load texture image file list    
+            # load texture image file list
+            # These is the texture source file list
             self.texture_source_file_list = glob(os.path.join(texture_source_dir,'*/*')) if texture_source_dir else None
         
             # perlin noise
-            self.perlin_scale = perlin_scale
-            self.min_perlin_scale = min_perlin_scale
-            self.perlin_noise_threshold = perlin_noise_threshold
+            self.perlin_scale = perlin_scale# 6
+            self.min_perlin_scale = min_perlin_scale # 0
+            self.perlin_noise_threshold = perlin_noise_threshold # you have to threshold the noise
             
             # structure
-            self.structure_grid_size = structure_grid_size
+            self.structure_grid_size = structure_grid_size # you set it here to 8 by 8 althought this
+            # is different than the results of the paper
             
             # anomaly mixing
+            # you have a range of 2 values
             self.transparency_range = transparency_range
             
             # mask setting
+            # these are set for you from the anomaley_mask.json remember this
             self.use_mask = use_mask
             self.bg_threshold = bg_threshold
             self.bg_reverse = bg_reverse
             
         # transform
         self.resize = list(resize)
+        # you resize the imagei nto 288 by 288
+        # you transofmr to 256 by 256 for the network
         self.transform_img = [
             transforms.ToPILImage(),
             transforms.CenterCrop(imagesize),
             transforms.ToTensor(),
             transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
         ]
+        # very important to use image net mean and std
         self.transform_img = transforms.Compose(self.transform_img)
 
         self.transform_mask = [
             transforms.ToPILImage(),
             transforms.CenterCrop(imagesize),
             transforms.ToTensor(),
-        ]
+        ]# image size beta3ak is 256 by 256
         self.transform_mask = transforms.Compose(self.transform_mask)
 
         # sythetic anomaly switch
@@ -96,33 +107,37 @@ class MemSegDataset(Dataset):
         file_path = self.file_list[idx]
         
         # image
+        # opening with pillow
         img = Image.open(file_path).convert("RGB").resize(self.resize)
+        # converting to numpy arrray
         img = np.array(img)
         
         # target
+        # this is my target label
         target = 0 if 'good' in self.file_list[idx] else 1
         
         # mask
         if 'good' in file_path:
             mask = np.zeros(self.resize, dtype=np.float32)
         else:
+            # getting the mask this will help us understand where is the problem
+            # if i understand correctly in the
             mask = Image.open(file_path.replace('test','ground_truth').replace('.png','_mask.png')).resize(self.resize)
             mask = np.array(mask)
-        
         ## anomaly source
         if self.is_train and not self.to_memory:
             if self.anomaly_switch:
                 img, mask = self.generate_anomaly(img=img, texture_img_list=self.texture_source_file_list)
+                # you took a good sample and you made it bad
                 target = 1
                 self.anomaly_switch = False
-                
                 mask = torch.Tensor(mask)
-            else:        
-                self.anomaly_switch = True   
-        
+            else:
+                # turn the switch to true
+                self.anomaly_switch = True
+        # in this way we have 50 percent of the times we have created annomlies
         img = self.transform_img(img)
         mask = self.transform_mask(mask).squeeze()
-        
         return img, mask, target
         
         
