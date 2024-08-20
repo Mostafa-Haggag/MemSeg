@@ -218,9 +218,11 @@ class MemSegDataset(Dataset):
     def generate_target_foreground_mask(self, img: np.ndarray) -> np.ndarray:
         # convert RGB into GRAY scale
         img_gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
-        
+        # THIS IS A MODIFICATION
+        # Apply Gaussian Blur to reduce noise
+        blurred_img = cv2.GaussianBlur(img_gray, (5, 5), 0)
         # generate binary mask of gray scale image
-        _, target_background_mask = cv2.threshold(img_gray, self.bg_threshold, 255, cv2.THRESH_BINARY)
+        _, target_background_mask = cv2.threshold(blurred_img, self.bg_threshold, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
         # The binary mask image where the background pixels are white (255) and the rest are black (0).
         target_background_mask = target_background_mask.astype(np.bool_).astype(int)
 
