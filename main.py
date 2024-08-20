@@ -97,11 +97,26 @@ def run(cfg):
 
 
     # build feature extractor
+    # resnet18
+    # pretraind
+    # featureonly
+    # THIS IS TIMM FUNTION, it does the magic for you
     feature_extractor = create_model(
         cfg.MODEL.feature_extractor_name, 
         pretrained    = True, 
         features_only = True
     ).to(device)
+    # These features with different resolutions together constitute the memory information .
+    # It needs to be emphasized that in order to ensure
+    # the unification of the memory information and the high-level features of the input images,
+    # we always freeze the model parameters of block 1, block 2, and block 3 in ResNet18, but
+    # the rest of the model is still trainable.
+    # torch.Size([8, 64, 128, 128]) After max pooling
+    # torch.Size([8, 64, 64, 64]) TO BE USED FROZEN
+    # torch.Size([8, 128, 32, 32]) TO BE USED FROZEN
+    # torch.Size([8, 256, 16, 16]) TO BE USED FROZEN
+    # torch.Size([8, 512, 8, 8]) after layer 4
+    # you have all these  features
     ## freeze weight of layer1,2,3
     for l in ['layer1','layer2','layer3']:
         for p in feature_extractor[l].parameters():
@@ -115,8 +130,10 @@ def run(cfg):
     )
     ## update normal samples and save
     memory_bank.update(feature_extractor=feature_extractor)
+    # this is very very imporatn because without you can do nothing
     torch.save(memory_bank, os.path.join(savedir, f'memory_bank.pt'))
-    _logger.info('Update {} normal samples in memory bank'.format(cfg.MEMORYBANK.nb_memory_sample))
+    # I guess he doesnot log the memory bank because simply it has alot of space
+    _logger.info('Update {} normal samples in memory bank'.format(cfg.MEMORYBANK.nb_memory_sample))# the set value is 30
 
     # build MemSeg
     model = MemSeg(

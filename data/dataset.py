@@ -183,6 +183,10 @@ class MemSegDataset(Dataset):
         img_size = img.shape[:-1] # H x W
         
         ## target foreground mask
+        # this is very imporatnt that in anomley_mask
+        # you have option to use the mask and not to use it
+        # also if you use it you have the option to choose threshold value
+
         if self.use_mask:
             target_foreground_mask = self.generate_target_foreground_mask(img=img)
         else:
@@ -193,6 +197,8 @@ class MemSegDataset(Dataset):
         
         ## mask
         mask = perlin_noise_mask * target_foreground_mask
+        # The function np.expand_dims() is used
+        # to add an additional dimension to an array in a specific axis. # new size (height, width, 1).
         mask_expanded = np.expand_dims(mask, axis=2)
         
         # step 2. generate texture or structure anomaly
@@ -215,18 +221,24 @@ class MemSegDataset(Dataset):
         
         # generate binary mask of gray scale image
         _, target_background_mask = cv2.threshold(img_gray, self.bg_threshold, 255, cv2.THRESH_BINARY)
-        target_background_mask = target_background_mask.astype(np.bool).astype(np.int)
+        # The binary mask image where the background pixels are white (255) and the rest are black (0).
+        target_background_mask = target_background_mask.astype(np.bool_).astype(int)
 
         # invert mask for foreground mask
         if self.bg_reverse:
             target_foreground_mask = target_background_mask
+            # fulll background is 1 and foreground is 0
         else:
             target_foreground_mask = -(target_background_mask - 1)
+            #  This effectively flips the mask to create a foreground mask where the foreground
+            #  areas are marked as 1 and the background areas are marked as 0.
+            # the background is zero and foreground is 1
         
         return target_foreground_mask
     
     def generate_perlin_noise_mask(self, img_size: tuple) -> np.ndarray:
         # define perlin noise scale
+        # # torch.randint(min_perlin_scale, perlin_scale, (1,)) gives you valuees between min perlin scale ot perlin scale
         perlin_scalex = 2 ** (torch.randint(self.min_perlin_scale, self.perlin_scale, (1,)).numpy()[0])
         perlin_scaley = 2 ** (torch.randint(self.min_perlin_scale, self.perlin_scale, (1,)).numpy()[0])
 
@@ -238,6 +250,7 @@ class MemSegDataset(Dataset):
         perlin_noise = rot(image=perlin_noise)
         
         # make a mask by applying threshold
+        # this is how to make thresholding on the noisse
         mask_noise = np.where(
             perlin_noise > self.perlin_noise_threshold, 
             np.ones_like(perlin_noise), 
@@ -247,9 +260,11 @@ class MemSegDataset(Dataset):
         return mask_noise
     
     def anomaly_source(self, img: np.ndarray, texture_img_list: list = None) -> np.ndarray:
+        # choose randomly the source of the anomaly whether strucutalre or texture
         p = np.random.uniform() if texture_img_list else 1.0
         if p < 0.5:
             idx = np.random.choice(len(texture_img_list))
+            # choose a random one
             img_size = img.shape[:-1] # H x W
             anomaly_source_img = self._texture_source(img_size=img_size, texture_img_path=texture_img_list[idx])
         else:
@@ -265,6 +280,15 @@ class MemSegDataset(Dataset):
         return texture_source_img
         
     def _structure_source(self, img: np.ndarray) -> np.ndarray:
+        # #First Rearrangement: Converts the tensor from a grid-based layout to
+        # a flattened grid layout where images are ordered sequentially.
+        # #Shuffling: Randomizes the order of the images to ensure varied input.
+        # #Second Rearrangement: Converts the tensor back to its original
+        # grid-based layout but with the images shuffled.
+        # VIP INFO
+        # input  (h w) gw gh c where h and w are now dimensions of the flattened grid, and gw, gh, and c are preserved.
+        # you are rturning image to as it was after shuffeling is by the disorder idx
+        # output is : (h gh) (w gw) c where the grid dimensions are restored to their original structure.
         structure_source_img = self.rand_augment()(image=img)
         
         img_size = img.shape[:-1] # H x W
@@ -272,7 +296,8 @@ class MemSegDataset(Dataset):
         assert img_size[0] % self.structure_grid_size == 0, 'structure should be devided by grid size accurately'
         grid_w = img_size[1] // self.structure_grid_size
         grid_h = img_size[0] // self.structure_grid_size
-        
+        # # h and w are the height and width of the grid.
+        # # gh and gw are the height and width of the grid cells.
         structure_source_img = rearrange(
             tensor  = structure_source_img, 
             pattern = '(h gh) (w gw) c -> (h w) gw gh c',
