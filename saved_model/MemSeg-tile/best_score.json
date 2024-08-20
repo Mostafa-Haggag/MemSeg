@@ -1,6 +1,0 @@
-{
-	"best_step": 2599,
-	"eval_AUROC-image": 0.9985569985569985,
-	"eval_AUROC-pixel": 0.9938479608847095,
-	"eval_AUPRO-pixel": 0.9880707645224925
-}

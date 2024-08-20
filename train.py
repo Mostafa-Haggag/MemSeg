@@ -131,35 +131,7 @@ def training(model, trainloader, validloader, criterion, optimizer, scheduler, n
                             rate_avg   = inputs.size(0) / batch_time_m.avg,
                             data_time  = data_time_m))
 
-
-            # if ((step+1) % eval_interval == 0 and step != 0) or (step+1) == num_training_steps:
-            #     eval_metrics = evaluate(
-            #         model        = model,
-            #         dataloader   = validloader,
-            #         device       = device
-            #     )
                 model.train()
-
-                # eval_log = dict([(f'eval_{k}', v) for k, v in eval_metrics.items()])
-
-                # wandb
-                # if use_wandb:
-                #     wandb.log(eval_log, step=step)
-                # torch.save(model.state_dict(), os.path.join(savedir, f'best_model.pt'))
-
-                # checkpoint
-                # if best_score < np.mean(list(eval_metrics.values())):
-                #     # save best score
-                #     state = {'best_step':step}
-                #     state.update(eval_log)
-                #     json.dump(state, open(os.path.join(savedir, 'best_score.json'),'w'), indent='\t')
-                #
-                #     # save best model
-                #     torch.save(model.state_dict(), os.path.join(savedir, f'best_model.pt'))
-                #
-                #     _logger.info('Best Score {0:.3%} to {1:.3%}'.format(best_score, np.mean(list(eval_metrics.values()))))
-                #
-                #     best_score = np.mean(list(eval_metrics.values()))
 
             # scheduler
             if scheduler:

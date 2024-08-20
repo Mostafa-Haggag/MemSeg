@@ -4,7 +4,7 @@ import os
 import torch
 import torch.nn as nn
 import argparse
-
+# this is begining to prepare the model to train
 from omegaconf import OmegaConf
 from timm import create_model
 from data import create_dataset, create_dataloader
