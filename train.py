@@ -16,19 +16,36 @@ _logger = logging.getLogger('train')
 class AverageMeter:
     """Computes and stores the average and current value"""
     def __init__(self):
-        self.reset()
+        self.val = 0
+        self.avg = 0
+        self.sum = 0
+        self.count = 0
+        self.sum_per_epoch =0
+        self.count_per_epoch =0
+        self.avg_per_epoch =0
 
     def reset(self):
         self.val = 0
         self.avg = 0
         self.sum = 0
         self.count = 0
+        self.sum_per_epoch =0
+        self.count_per_epoch =0
+        self.avg_per_epoch =0
+
+    def reset_per_epoch(self):
+        self.sum_per_epoch =0
+        self.count_per_epoch =0
+        self.avg_per_epoch =0
 
     def update(self, val, n=1):
         self.val = val
         self.sum += val * n
         self.count += n
         self.avg = self.sum / self.count
+        self.sum_per_epoch += val * n
+        self.count_per_epoch += n
+        self.avg_per_epoch = self.sum_per_epoch / self.count_per_epoch
 
 
 
@@ -55,9 +72,10 @@ def training(model, trainloader, validloader, criterion, optimizer, scheduler, n
     best_score = 0
     step = 0
     train_mode = True
-    while train_mode:
 
+    while train_mode:
         end = time.time()
+        epoch = 0
         for inputs, masks, targets in trainloader:
             # batch
             inputs, masks, targets = inputs.to(device), masks.to(device), targets.to(device)
@@ -87,6 +105,7 @@ def training(model, trainloader, validloader, criterion, optimizer, scheduler, n
             # wandb
             if use_wandb:
                 wandb.log({
+                    'epoch':epoch,
                     'lr':optimizer.param_groups[0]['lr'],
                     'train_focal_loss':focal_losses_m.val,
                     'train_l1_loss':l1_losses_m.val,
@@ -113,33 +132,34 @@ def training(model, trainloader, validloader, criterion, optimizer, scheduler, n
                             data_time  = data_time_m))
 
 
-            if ((step+1) % eval_interval == 0 and step != 0) or (step+1) == num_training_steps: 
-                eval_metrics = evaluate(
-                    model        = model, 
-                    dataloader   = validloader, 
-                    device       = device
-                )
+            # if ((step+1) % eval_interval == 0 and step != 0) or (step+1) == num_training_steps:
+            #     eval_metrics = evaluate(
+            #         model        = model,
+            #         dataloader   = validloader,
+            #         device       = device
+            #     )
                 model.train()
 
-                eval_log = dict([(f'eval_{k}', v) for k, v in eval_metrics.items()])
+                # eval_log = dict([(f'eval_{k}', v) for k, v in eval_metrics.items()])
 
                 # wandb
-                if use_wandb:
-                    wandb.log(eval_log, step=step)
+                # if use_wandb:
+                #     wandb.log(eval_log, step=step)
+                # torch.save(model.state_dict(), os.path.join(savedir, f'best_model.pt'))
 
                 # checkpoint
-                if best_score < np.mean(list(eval_metrics.values())):
-                    # save best score
-                    state = {'best_step':step}
-                    state.update(eval_log)
-                    json.dump(state, open(os.path.join(savedir, 'best_score.json'),'w'), indent='\t')
-
-                    # save best model
-                    torch.save(model.state_dict(), os.path.join(savedir, f'best_model.pt'))
-                    
-                    _logger.info('Best Score {0:.3%} to {1:.3%}'.format(best_score, np.mean(list(eval_metrics.values()))))
-
-                    best_score = np.mean(list(eval_metrics.values()))
+                # if best_score < np.mean(list(eval_metrics.values())):
+                #     # save best score
+                #     state = {'best_step':step}
+                #     state.update(eval_log)
+                #     json.dump(state, open(os.path.join(savedir, 'best_score.json'),'w'), indent='\t')
+                #
+                #     # save best model
+                #     torch.save(model.state_dict(), os.path.join(savedir, f'best_model.pt'))
+                #
+                #     _logger.info('Best Score {0:.3%} to {1:.3%}'.format(best_score, np.mean(list(eval_metrics.values()))))
+                #
+                #     best_score = np.mean(list(eval_metrics.values()))
 
             # scheduler
             if scheduler:
@@ -152,66 +172,82 @@ def training(model, trainloader, validloader, criterion, optimizer, scheduler, n
             if step == num_training_steps:
                 train_mode = False
                 break
-
+        print("Epoch has finished")
+        # wandb
+        if use_wandb:
+            wandb.log({
+                'epoch': epoch,
+                'lr': optimizer.param_groups[0]['lr'],
+                'train_focal_loss_avg_running': focal_losses_m.avg,
+                'train_l1_loss_avg_running': l1_losses_m.avg,
+                'train_loss_avg_running': losses_m.avg,
+                'train_focal_loss_per_epoch': focal_losses_m.avg_per_epoch,
+                'train_l1_loss_per_epoch': l1_losses_m.avg_per_epoch,
+                'train_loss_per_epoch': losses_m.avg_per_epoch
+            },
+            step=epoch)
+        focal_losses_m.reset_per_epoch()
+        l1_losses_m.reset_per_epoch()
+        losses_m.reset_per_epoch()
+        torch.save(model.state_dict(), os.path.join(savedir, f'weights_for_{epoch}].pt'))
+        epoch +=1
     # print best score and step
-    _logger.info('Best Metric: {0:.3%} (step {1:})'.format(best_score, state['best_step']))
+    # _logger.info('Best Metric: {0:.3%} (step {1:})'.format(best_score, state['best_step']))
 
     # save latest model
-    torch.save(model.state_dict(), os.path.join(savedir, f'latest_model.pt'))
-
     # save latest score
-    state = {'latest_step':step}
-    state.update(eval_log)
-    json.dump(state, open(os.path.join(savedir, 'latest_score.json'),'w'), indent='\t')
+    # state = {'latest_step':step}
+    # state.update(eval_log)
+    # json.dump(state, open(os.path.join(savedir, 'latest_score.json'),'w'), indent='\t')
 
     
 
         
-def evaluate(model, dataloader, device: str = 'cpu'):
-    # targets and outputs
-    image_targets = []
-    image_masks = []
-    anomaly_score = []
-    anomaly_map = []
-
-    model.eval()
-    with torch.no_grad():
-        for idx, (inputs, masks, targets) in enumerate(dataloader):
-            inputs, masks, targets = inputs.to(device), masks.to(device), targets.to(device)
-            
-            # predict
-            outputs = model(inputs)
-            outputs = F.softmax(outputs, dim=1)
-            anomaly_score_i = torch.topk(torch.flatten(outputs[:,1,:], start_dim=1), 100)[0].mean(dim=1)
-
-            # stack targets and outputs
-            image_targets.extend(targets.cpu().tolist())
-            image_masks.extend(masks.cpu().numpy())
-            
-            anomaly_score.extend(anomaly_score_i.cpu().tolist())
-            anomaly_map.extend(outputs[:,1,:].cpu().numpy())
-            
-    # metrics    
-    image_masks = np.array(image_masks)
-    anomaly_map = np.array(anomaly_map)
-    
-    auroc_image = roc_auc_score(image_targets, anomaly_score)
-    auroc_pixel = roc_auc_score(image_masks.reshape(-1).astype(int), anomaly_map.reshape(-1))
-    all_fprs, all_pros = compute_pro(
-        anomaly_maps      = anomaly_map,
-        ground_truth_maps = image_masks
-    )
-    aupro = trapezoid(all_fprs, all_pros)
-    
-    metrics = {
-        'AUROC-image':auroc_image,
-        'AUROC-pixel':auroc_pixel,
-        'AUPRO-pixel':aupro
-
-    }
-
-    _logger.info('TEST: AUROC-image: %.3f%% | AUROC-pixel: %.3f%% | AUPRO-pixel: %.3f%%' % 
-                (metrics['AUROC-image'], metrics['AUROC-pixel'], metrics['AUPRO-pixel']))
-
-
-    return metrics
+# def evaluate(model, dataloader, device: str = 'cpu'):
+#     # targets and outputs
+#     image_targets = []
+#     image_masks = []
+#     anomaly_score = []
+#     anomaly_map = []
+#
+#     model.eval()
+#     with torch.no_grad():
+#         for idx, (inputs, masks, targets) in enumerate(dataloader):
+#             inputs, masks, targets = inputs.to(device), masks.to(device), targets.to(device)
+#
+#             # predict
+#             outputs = model(inputs)
+#             outputs = F.softmax(outputs, dim=1)
+#             anomaly_score_i = torch.topk(torch.flatten(outputs[:,1,:], start_dim=1), 100)[0].mean(dim=1)
+#
+#             # stack targets and outputs
+#             image_targets.extend(targets.cpu().tolist())
+#             image_masks.extend(masks.cpu().numpy())
+#
+#             anomaly_score.extend(anomaly_score_i.cpu().tolist())
+#             anomaly_map.extend(outputs[:,1,:].cpu().numpy())
+#
+#     # metrics
+#     image_masks = np.array(image_masks)
+#     anomaly_map = np.array(anomaly_map)
+#
+#     auroc_image = roc_auc_score(image_targets, anomaly_score)
+#     auroc_pixel = roc_auc_score(image_masks.reshape(-1).astype(int), anomaly_map.reshape(-1))
+#     all_fprs, all_pros = compute_pro(
+#         anomaly_maps      = anomaly_map,
+#         ground_truth_maps = image_masks
+#     )
+#     aupro = trapezoid(all_fprs, all_pros)
+#
+#     metrics = {
+#         'AUROC-image':auroc_image,
+#         'AUROC-pixel':auroc_pixel,
+#         'AUPRO-pixel':aupro
+#
+#     }
+#
+#     _logger.info('TEST: AUROC-image: %.3f%% | AUROC-pixel: %.3f%% | AUPRO-pixel: %.3f%%' %
+#                 (metrics['AUROC-image'], metrics['AUROC-pixel'], metrics['AUPRO-pixel']))
+#
+#
+#     return metrics

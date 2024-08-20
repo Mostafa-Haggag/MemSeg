@@ -62,14 +62,14 @@ class MemoryBank:
                         # one along the 0th dimension (batch dimension) using torch.cat(). This essentially
                         # accumulates features from multiple samples into a single tensor, building up the memory bank.
 
-                        
     def _calc_diff(self, features: List[torch.Tensor]) -> torch.Tensor:
         # batch size X the number of samples saved in memory
+        # i have batch size
         diff_bank = torch.zeros(features[0].size(0), self.nb_memory_sample).to(self.device)
 
         # level
         for l, level in enumerate(self.memory_information.keys()):
-            # batch
+            # batch because you have big batch so you are looping example by example
             for b_idx, features_b in enumerate(features[l]):
                 # calculate l2 loss
                 diff = F.mse_loss(
@@ -82,8 +82,7 @@ class MemoryBank:
                 diff_bank[b_idx] += diff
                 
         return diff_bank
-        
-    
+
     def select(self, features: List[torch.Tensor]) -> torch.Tensor:
         # calculate difference between features and normal features of memory bank
         diff_bank = self._calc_diff(features=features)

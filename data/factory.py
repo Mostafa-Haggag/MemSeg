@@ -33,7 +33,8 @@ def create_dataloader(dataset, train: bool, batch_size: int = 16, num_workers: i
         dataset,
         shuffle     = train,
         batch_size  = batch_size,
-        num_workers = num_workers
+        num_workers = num_workers,
+        drop_last=True
     )
 
     return dataloader

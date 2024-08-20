@@ -4,6 +4,7 @@ import math
 import torch.nn.functional as F
 from .coordatt import CoordAtt
 
+
 class MSFFBlock(nn.Module):
     def __init__(self, in_channel):
         super(MSFFBlock, self).__init__()
@@ -22,10 +23,13 @@ class MSFFBlock(nn.Module):
         x = self.conv2(x)
         return x
 
-    
+
 class MSFF(nn.Module):
     def __init__(self):
         super(MSFF, self).__init__()
+        # Layer 1 ---> torch.Size([8, 64, 64, 64]) FROZEN LAYER
+        # Layer 2 ---> torch.Size([8, 128, 32, 32]) FROZEN LAYER
+        # Layer 3 ---> torch.Size([8, 256, 16, 16]) FROZEN LAYER
         self.blk1 = MSFFBlock(128)
         self.blk2 = MSFFBlock(256)
         self.blk3 = MSFFBlock(512)
