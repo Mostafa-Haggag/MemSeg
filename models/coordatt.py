@@ -41,6 +41,8 @@ class h_swish(nn.Module):
 
 class CoordAtt(nn.Module):
     '''
+    # to simply understand what is happening
+    you need to check this https://blog.paperspace.com/coordinate-attention/
     **
     The code defines a custom PyTorch module called CoordAtt, which stands for Coordinate Attention.
     This module is a form of attention mechanism that enhances the network's ability to capture spatial
