@@ -93,6 +93,6 @@ class MemoryBank:
             selected_features = torch.index_select(self.memory_information[level], dim=0, index=diff_bank.argmin(dim=1))
             diff_features = F.mse_loss(selected_features, features[l], reduction='none')
             features[l] = torch.cat([features[l], diff_features], dim=1)
-            
+
         return features
     

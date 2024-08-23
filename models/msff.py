@@ -11,9 +11,13 @@ class MSFFBlock(nn.Module):
     def __init__(self, in_channel):
         super(MSFFBlock, self).__init__()
         # d by a 3×3 convolutional layer that maintains the number of channels
+        # the concatenated information ( = 1,2,3) is initially fused by
+        # a 3×3 convolutional layer that maintains the number of channels.
         self.conv1 = nn.Conv2d(in_channel, in_channel, kernel_size=3, stride=1, padding=1)
         # attetnion
+
         self.attn = CoordAtt(in_channel, in_channel)
+        # this is the block that is after CA block in the figure
         self.conv2 = nn.Sequential(
             nn.Conv2d(in_channel, in_channel // 2, kernel_size=3, stride=1, padding=1),
             nn.Conv2d(in_channel // 2, in_channel // 2, kernel_size=3, stride=1, padding=1)
@@ -47,6 +51,11 @@ class MSFF(nn.Module):
         self.upsample = nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True)
 
         #  by a 3×3 convolutional layer that maintains the number of channels.
+        # these are thw thigns inside the module
+        # Then, for the features with different
+        # dimensions weighted by coordinate attention, we continue perform multi-scale
+        # information fusion: the feature maps of different dimensions are firstly aligned in resolution using
+        # up-sampling, then aligned in the number of channels using convolution,
         self.upconv32 = nn.Sequential(
             nn.Upsample(scale_factor=2, mode='bilinear', align_corners=True),
             nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1)
@@ -59,12 +68,13 @@ class MSFF(nn.Module):
     def forward(self, features):
         # features = [level1, level2, level3]
         f1, f2, f3 = features 
-        
+        # he is missing the step of he concatenated information ( = 1,2,3) is initially fused by a 3×3 convolutional layer that maintains the number of channels
         # MSFF Module
+
         f1_k = self.blk1(f1)
         f2_k = self.blk2(f2)
         f3_k = self.blk3(f3)
-
+        # the operation of element-wise add is executed to achieve multi-scale feature fusion.
         f2_f = f2_k + self.upconv32(f3_k)
         f1_f = f1_k + self.upconv21(f2_f)
 
@@ -84,10 +94,13 @@ Together, f3[:, 256:, ...] selects a subset of the tensor f3, specifically from 
 dim=1: This specifies the dimension along which to calculate the mean. Since PyTorch uses zero-based indexing, dim=1 refers to the second axis of the tensor (often corresponding to the height of an image, in typical image processing tensors).
 keepdim=True: This ensures that the reduced dimension (dimension 1) is kept in the result as a dimension with size 1, instead of being removed. This helps to maintain the original tensor's shape with just that specific dimension reduced to size 1.
         '''
+        # the fused features aare weighted by the spatial attention maps
+        # fed to the decorder
+        # this is what happens for the dor product
         m3 = f3[:,256:,...].mean(dim=1, keepdim=True)
         m2 = f2[:,128:,...].mean(dim=1, keepdim=True) * self.upsample(m3)
         m1 = f1[:,64:,...].mean(dim=1, keepdim=True) * self.upsample(m2)
-        
+        #  the fused
         f1_out = f1_f * m1
         f2_out = f2_f * m2
         f3_out = f3_k * m3
